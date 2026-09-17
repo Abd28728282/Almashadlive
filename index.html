@@ -1,42 +1,300 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>HLS Player</title>
+<title>البث المباشر</title>
 <style>
-  * { margin: 0; padding: 0; overflow: hidden; }
-  html, body { width: 100%; height: 100%; background: #000; }
-  #player { width: 100%; height: 100%; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; background: #000; font-family: -apple-system, 'Segoe UI', Tahoma, sans-serif; overflow: hidden; color: #fff; user-select: none; }
+  
+  /* ===== واجهة المولّد (تظهر فقط عند عدم وجود رابط) ===== */
+  .generator { position: fixed; inset: 0; background: radial-gradient(ellipse at center, #1a0000 0%, #000 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 24px; z-index: 9999; overflow-y: auto; }
+  .generator.hide { display: none; }
+  .gen-card { width: 100%; max-width: 520px; background: rgba(255,255,255,0.04); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 32px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+  .gen-logo { width: 80px; height: 80px; margin: 0 auto 22px; border-radius: 22px; background: linear-gradient(135deg, #e63946, #7a0a0a); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 60px rgba(230,57,70,0.6); animation: logoPulse 3s ease-in-out infinite; }
+  @keyframes logoPulse { 0%,100% { box-shadow: 0 0 60px rgba(230,57,70,0.6); transform: translateY(0); } 50% { box-shadow: 0 0 90px rgba(230,57,70,1); transform: translateY(-5px); } }
+  .gen-logo svg { width: 42px; height: 42px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .gen-title { font-size: 26px; font-weight: 900; text-align: center; margin-bottom: 8px; background: linear-gradient(135deg, #fff 0%, #ffb3b3 50%, #e63946 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .gen-sub { font-size: 14px; color: #888; text-align: center; margin-bottom: 28px; line-height: 1.6; }
+  .gen-field { margin-bottom: 16px; }
+  .gen-field label { display: block; font-size: 13px; font-weight: 700; color: #aaa; margin-bottom: 8px; }
+  .gen-field input { width: 100%; padding: 15px 18px; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; color: #fff; font-size: 14px; font-family: inherit; outline: none; direction: ltr; text-align: left; transition: all 0.2s; }
+  .gen-field input:focus { border-color: #e63946; background: rgba(0,0,0,0.6); box-shadow: 0 0 0 4px rgba(230,57,70,0.15); }
+  .gen-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #e63946, #7a0a0a); border: none; border-radius: 16px; color: #fff; font-size: 16px; font-weight: 900; cursor: pointer; letter-spacing: 1px; box-shadow: 0 15px 40px rgba(230,57,70,0.5); transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: inherit; margin-top: 8px; }
+  .gen-btn svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .gen-btn:hover { transform: translateY(-3px); box-shadow: 0 20px 50px rgba(230,57,70,0.7); }
+  .gen-btn:active { transform: scale(0.98); }
+  .gen-result { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.1); display: none; }
+  .gen-result.show { display: block; animation: slideDown 0.4s ease-out; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+  .gen-result-label { font-size: 13px; font-weight: 700; color: #4ade80; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .gen-result-label svg { width: 16px; height: 16px; stroke: #4ade80; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .gen-link-box { display: flex; gap: 8px; }
+  .gen-link { flex: 1; padding: 13px 14px; background: rgba(0,0,0,0.5); border: 1px solid rgba(74,222,128,0.3); border-radius: 12px; color: #4ade80; font-size: 12px; font-family: 'Courier New', monospace; direction: ltr; text-align: left; outline: none; overflow: hidden; text-overflow: ellipsis; }
+  .gen-copy { padding: 13px 18px; background: linear-gradient(135deg, #4ade80, #16a34a); border: none; border-radius: 12px; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: inherit; transition: all 0.2s; white-space: nowrap; }
+  .gen-copy svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .gen-copy:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(74,222,128,0.5); }
+  .gen-open { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 15px; background: rgba(230,57,70,0.15); border: 2px solid rgba(230,57,70,0.5); border-radius: 14px; color: #ff6b6b; font-weight: 800; font-size: 14px; text-decoration: none; margin-top: 12px; transition: all 0.2s; font-family: inherit; }
+  .gen-open svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .gen-open:hover { background: rgba(230,57,70,0.25); border-color: #e63946; transform: translateY(-2px); }
+  .gen-help { margin-top: 22px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #888; line-height: 1.8; }
+  .gen-help code { background: rgba(230,57,70,0.15); color: #ff8888; padding: 2px 6px; border-radius: 5px; font-family: 'Courier New', monospace; direction: ltr; display: inline-block; font-size: 11px; }
+
+  /* ===== المشغل ===== */
+  .player { position: relative; width: 100%; height: 100%; background: radial-gradient(ellipse at center, #1a0000 0%, #000 70%); overflow: hidden; display: none; }
+  .player.show { display: block; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+  .glow { position: absolute; width: 500px; height: 500px; border-radius: 50%; background: radial-gradient(circle, rgba(230,57,70,0.35) 0%, transparent 70%); filter: blur(80px); pointer-events: none; animation: float 10s ease-in-out infinite; z-index: 1; }
+  .glow.g1 { top: -150px; left: -150px; }
+  .glow.g2 { background: radial-gradient(circle, rgba(255,120,0,0.25) 0%, transparent 70%); animation-delay: -5s; top: 60%; left: 70%; }
+  @keyframes float { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,-40px,0) scale(1.15); } }
+  .buffering { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 50; display: none; flex-direction: column; align-items: center; gap: 18px; pointer-events: none; }
+  .buffering.show { display: flex; }
+  .buffer-ring { position: relative; width: 100px; height: 100px; }
+  .buffer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .buffer-ring .track { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
+  .buffer-ring .progress { fill: none; stroke: url(#buffGrad); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; animation: buffSpin 1.4s cubic-bezier(0.65,0,0.35,1) infinite; filter: drop-shadow(0 0 6px rgba(230,57,70,0.8)); }
+  @keyframes buffSpin { 0% { stroke-dashoffset: 283; } 50% { stroke-dashoffset: 70; } 100% { stroke-dashoffset: 283; } }
+  .buffer-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; font-weight: 900; text-shadow: 0 0 15px rgba(230,57,70,0.9); }
+  .buffer-text { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 4px; font-weight: 700; }
+  .top-bar { position: absolute; top: 0; left: 0; right: 0; padding: 18px 22px; background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%); display: flex; align-items: center; justify-content: space-between; z-index: 20; transition: opacity 0.3s, transform 0.3s; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { position: relative; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #e63946, #7a0a0a); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px rgba(230,57,70,0.7); animation: logoPulse2 2.5s ease-in-out infinite; }
+  .logo svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; }
+  @keyframes logoPulse2 { 0%,100% { box-shadow: 0 0 25px rgba(230,57,70,0.7); } 50% { box-shadow: 0 0 40px rgba(230,57,70,1); } }
+  .brand-text { display: flex; flex-direction: column; gap: 4px; }
+  .brand-title { font-size: 17px; font-weight: 800; background: linear-gradient(90deg, #fff, #ffb3b3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #ff4444; letter-spacing: 1.5px; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff2d2d; box-shadow: 0 0 10px #ff2d2d; animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.7); } }
+  .bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 24px 22px 28px; background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, transparent 100%); display: flex; flex-direction: column; gap: 16px; z-index: 20; transition: opacity 0.3s, transform 0.3s; }
+  .progress-wrap { width: 100%; height: 6px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #e63946, #ff6b35, #e63946); background-size: 200% 100%; border-radius: 10px; animation: shimmer 2s linear infinite; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .controls { display: flex; align-items: center; justify-content: space-between; }
+  .controls-left, .controls-right { display: flex; align-items: center; gap: 12px; }
+  .btn { width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.15s, background 0.15s, box-shadow 0.15s; position: relative; overflow: hidden; touch-action: manipulation; }
+  .btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(230,57,70,0.9), rgba(183,28,28,0.9)); opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+  .btn svg { position: relative; z-index: 2; width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; display: block; }
+  .btn:hover::before { opacity: 1; }
+  .btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.4); box-shadow: 0 8px 25px rgba(230,57,70,0.5); }
+  .btn:active { transform: scale(0.9); }
+  .btn.active::before { opacity: 1; }
+  .btn-play { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #e63946, #7a0a0a); box-shadow: 0 0 30px rgba(230,57,70,0.7); }
+  .btn-play::before { border-radius: 50%; }
+  .btn-play svg { width: 26px; height: 26px; }
+  .loading { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; z-index: 100; transition: opacity 0.5s, visibility 0.5s; }
+  .loading.hide { opacity: 0; visibility: hidden; }
+  .spinner { position: relative; width: 80px; height: 80px; }
+  .spinner::before, .spinner::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; }
+  .spinner::before { border-top-color: #e63946; border-right-color: #e63946; animation: spin 1s linear infinite; }
+  .spinner::after { inset: 10px; border-bottom-color: #ff6b35; border-left-color: #ff6b35; animation: spin 1.5s linear reverse infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: #888; letter-spacing: 3px; font-weight: 600; }
+  .error { position: absolute; inset: 0; background: radial-gradient(ellipse at center, #1a0000 0%, #000 80%); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 200; padding: 40px; text-align: center; }
+  .error.show { display: flex; }
+  .error-icon { width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: radial-gradient(circle, rgba(230,57,70,0.2) 0%, transparent 70%); }
+  .error-icon svg { width: 60px; height: 60px; stroke: #e63946; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 20px rgba(230,57,70,0.8)); }
+  .error-title { font-size: 20px; font-weight: 800; }
+  .error-sub { font-size: 14px; color: #888; line-height: 1.6; }
+  .retry-btn { margin-top: 10px; padding: 16px 50px; background: linear-gradient(135deg, #e63946, #7a0a0a); border: none; border-radius: 50px; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(230,57,70,0.5); letter-spacing: 1px; font-family: inherit; transition: all 0.2s; }
+  .retry-btn:hover { transform: translateY(-3px); }
+  video::-webkit-media-controls { display: none !important; }
+  .hidden-ui .top-bar { opacity: 0; transform: translateY(-20px); pointer-events: none; }
+  .hidden-ui .bottom-bar { opacity: 0; transform: translateY(20px); pointer-events: none; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: linear-gradient(135deg, #e63946, #7a0a0a); color: #fff; padding: 14px 24px; border-radius: 14px; font-weight: 700; font-size: 14px; box-shadow: 0 15px 40px rgba(230,57,70,0.5); z-index: 99999; transition: transform 0.3s; font-family: inherit; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
-<div id="player"></div>
 
-<script src="https://ssl.p.jwpcdn.com/player/v/8.17.7/jwplayer.js"></script>
+<!-- ===== المولّد ===== -->
+<div class="generator" id="generator">
+  <div class="gen-card">
+    <div class="gen-logo">
+      <svg viewBox="0 0 24 24">
+        <path d="M4.93 19.07a10 10 0 0 1 0-14.14"/>
+        <path d="M7.76 16.24a6 6 0 0 1 0-8.48"/>
+        <path d="M16.24 7.76a6 6 0 0 1 0 8.48"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <circle cx="12" cy="12" r="2" fill="#fff" stroke="none"/>
+      </svg>
+    </div>
+    <div class="gen-title">مولّد مشغل البث</div>
+    <div class="gen-sub">ضع رابط البث واحصل على رابط جاهز للاستخدام</div>
+
+    <div class="gen-field">
+      <label>رابط البث المباشر (m3u8)</label>
+      <input type="url" id="urlInput" placeholder="https://example.com/live.m3u8" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="gen-field">
+      <label>اسم القناة (اختياري)</label>
+      <input type="text" id="nameInput" placeholder="قناة الأقصى" maxlength="40" autocomplete="off">
+    </div>
+
+    <button class="gen-btn" id="genBtn">
+      <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#fff" stroke="none"/></svg>
+      توليد الرابط
+    </button>
+
+    <div class="gen-result" id="genResult">
+      <div class="gen-result-label">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>الرابط جاهز</span>
+      </div>
+      <div class="gen-link-box">
+        <input type="text" class="gen-link" id="genLink" readonly>
+        <button class="gen-copy" id="genCopy">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          نسخ
+        </button>
+      </div>
+      <a href="#" class="gen-open" id="genOpen" target="_blank">
+        <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        فتح المشغل
+      </a>
+    </div>
+
+    <div class="gen-help">
+      💡 <strong>كيف يعمل؟</strong><br>
+      الرابط الناتج سيكون بهذا الشكل:<br>
+      <code>https://username.github.io/player/?url=...&name=...</code><br>
+      افتحه في أي متصفح وسيشتغل البث مباشرة.
+    </div>
+  </div>
+</div>
+
+<!-- ===== المشغل ===== -->
+<div class="player" id="player">
+  <div class="glow g1"></div>
+  <div class="glow g2"></div>
+
+  <video id="video" autoplay muted playsinline preload="auto"></video>
+
+  <div class="buffering" id="buffering">
+    <div class="buffer-ring">
+      <svg viewBox="0 0 100 100">
+        <defs><linearGradient id="buffGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e63946"/><stop offset="100%" stop-color="#ff6b35"/></linearGradient></defs>
+        <circle class="track" cx="50" cy="50" r="45"/>
+        <circle class="progress" cx="50" cy="50" r="45"/>
+      </svg>
+      <div class="buffer-center" id="buffPct">0%</div>
+    </div>
+    <div class="buffer-text">جاري التحميل</div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">جاري الاتصال بالبث</div>
+  </div>
+
+  <div class="error" id="error">
+    <div class="error-icon">
+      <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="error-title">تعذّر تشغيل البث</div>
+    <div class="error-sub">تأكد من صحة الرابط</div>
+    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
+  </div>
+
+  <div class="top-bar" id="topBar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/><path d="M7.76 16.24a6 6 0 0 1 0-8.48"/><path d="M16.24 7.76a6 6 0 0 1 0 8.48"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title" id="channelTitle">البث المباشر</div>
+        <div class="live-badge"><span class="live-dot"></span><span>LIVE</span></div>
+      </div>
+    </div>
+    <button class="btn" id="topMuteBtn">
+      <svg viewBox="0 0 24 24" id="topMuteIcon"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    </button>
+  </div>
+
+  <div class="bottom-bar" id="bottomBar">
+    <div class="progress-wrap"><div class="progress-bar"></div></div>
+    <div class="controls">
+      <div class="controls-left">
+        <button class="btn btn-play" id="playBtn">
+          <svg viewBox="0 0 24 24" id="playIcon"><rect x="6" y="4" width="4" height="16" rx="1" fill="#fff" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="#fff" stroke="none"/></svg>
+        </button>
+        <button class="btn" id="muteBtn">
+          <svg viewBox="0 0 24 24" id="muteIcon"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </button>
+      </div>
+      <div class="controls-right">
+        <button class="btn" id="pipBtn">
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="12" width="8" height="6" rx="1" fill="#fff" stroke="none"/></svg>
+        </button>
+        <button class="btn" id="fsBtn">
+          <svg viewBox="0 0 24 24" id="fsIcon"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">تم النسخ</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <script>
-  jwplayer.key = "oXqNrzSZ9lQbo5mgdmfM+TwMP/GR4bAiKFXy8nlANTs=";
+'use strict';
 
-  const player = jwplayer("player").setup({
-    file: "https://43869de4e1a0d641.servers.dvcloud.tv/hls/al_aqsa_channel/6udfi7v8a3eof6nlps6e9ovfrs65c7l7.m3u8",
-    width: "100%",
-    height: "100%",
-    stretching: "exactfit",
-    autostart: true,          // تشغيل تلقائي
-    mute: false,              // الصوت مفتوح من البداية
-    primary: "html5",
-    hlshtml: true,
-    androidhls: true,
-    allowfullscreen: true,
-    controls: true
+// ===== قراءة الرابط من Query String =====
+const params = new URLSearchParams(window.location.search);
+const streamUrl = params.get('url');
+const channelName = params.get('name') || 'البث المباشر';
+
+const generator = document.getElementById('generator');
+const player = document.getElementById('player');
+const urlInput = document.getElementById('urlInput');
+const nameInput = document.getElementById('nameInput');
+const genBtn = document.getElementById('genBtn');
+const genResult = document.getElementById('genResult');
+const genLink = document.getElementById('genLink');
+const genCopy = document.getElementById('genCopy');
+const genOpen = document.getElementById('genOpen');
+const toast = document.getElementById('toast');
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ===== إذا لم يوجد رابط → أظهر المولّد =====
+if (!streamUrl) {
+  generator.classList.remove('hide');
+  player.classList.remove('show');
+
+  genBtn.addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    const name = nameInput.value.trim() || 'البث المباشر';
+
+    if (!url) { showToast('ضع رابط البث أولاً'); urlInput.focus(); return; }
+    if (!/^https?:\/\//i.test(url)) { showToast('الرابط يجب أن يبدأ بـ http أو https'); return; }
+
+    // ⭐ الرابط الناتج: نفس الصفحة + ?url=...&name=...
+    const base = window.location.origin + window.location.pathname;
+    const p = new URLSearchParams();
+    p.set('url', url);
+    p.set('name', name);
+    const finalUrl = base + '?' + p.toString();
+
+    genLink.value = finalUrl;
+    genOpen.href = finalUrl;
+    genResult.classList.add('show');
+    showToast('تم توليد الرابط');
   });
 
-  // محاولة إضافية لضمان التشغيل والصوت (احتياط)
-  player.on('ready', function () {
-    player.setMute(false);
-    player.setVolume(100);
-    player.play();
+  genCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(genLink.value);
+      showToast('تم النسخ ✓');
+      genCopy.innerHTML = '✓ تم';
+      setTimeout(() => genCopy.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> نسخ', 2000);
+    } catch { genLink.select(); document.execCommand('copy'); showToast('تم النسخ'); }
   });
-</script>
-</body>
-</html>
